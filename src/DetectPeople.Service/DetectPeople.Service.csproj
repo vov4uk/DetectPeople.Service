@@ -32,9 +32,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DetectPeople.Contracts\DetectPeople.Contracts.csproj" />
     <ProjectReference Include="..\DetectPeople.YOLOv4\DetectPeople.YOLOv4.csproj" />
     <ProjectReference Include="..\DetectPeople.YOLOv5\DetectPeople.YOLOv5.csproj" />
-    <ProjectReference Include="..\Hik.DTO\DetectPeople.Contracts.csproj" />
     <ProjectReference Include="..\DetectPeople.YOLOv5Net\DetectPeople.YOLOv5Net.csproj" />
   </ItemGroup>
 

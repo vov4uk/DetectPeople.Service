@@ -10,12 +10,6 @@
     <ItemGroup>
       <None Remove="Assets\yolov4.onnx" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Content Include="Assets\yolov4.onnx">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
-    </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.ML" Version="1.6.0" />
     <PackageReference Include="Microsoft.ML.ImageAnalytics" Version="1.6.0" />
