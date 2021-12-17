@@ -110,9 +110,9 @@ namespace DetectPeople.Service
                 timer.Stop();
                 logger.Info(msg.OldFilePath);
                 logger.Info($"{timer.ElapsedMilliseconds}ms. {objects.Count} objects detected. {string.Join(", ", objects.Select(x => x.Label))}");
-                                
+
                 //DrawObjects(msg.OldFilePath, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Test", Path.GetFileName(msg.OldFilePath)), objects);
-                
+
                 if (objects.Any())
                 {
                     int minHeight = config.MinPersonHeightPixel;
@@ -132,7 +132,7 @@ namespace DetectPeople.Service
                     {
                         ProcessJunk(msg, objects);
                     }
-                }                
+                }
                 else
                 {
                     ProcessJunk(msg, objects);
@@ -205,11 +205,6 @@ namespace DetectPeople.Service
             myEncoderParameters.Param[0] = new EncoderParameter(myEncoder, 25L);
 
             return (jpgEncoder, myEncoderParameters);
-        }
-
-        private bool IsNormal(float f)
-        {
-            return Math.Abs(f) <= 25;
         }
 
         private void SaveJpg(string source, string destination)

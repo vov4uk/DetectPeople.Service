@@ -28,13 +28,12 @@
     <PackageReference Include="Aspose.Imaging" Version="21.8.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="5.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="NLog" Version="4.7.13" />
     <PackageReference Include="RabbitMQ.Client" Version="6.2.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\DetectPeople.Contracts\DetectPeople.Contracts.csproj" />
-    <ProjectReference Include="..\DetectPeople.YOLOv4\DetectPeople.YOLOv4.csproj" />
-    <ProjectReference Include="..\DetectPeople.YOLOv5\DetectPeople.YOLOv5.csproj" />
     <ProjectReference Include="..\DetectPeople.YOLOv5Net\DetectPeople.YOLOv5Net.csproj" />
   </ItemGroup>
 
