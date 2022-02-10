@@ -5,8 +5,10 @@
         public RabbitMQConfig RabbitMQ { get; set; }
 
         public bool DrawJunkObjects { get; set; } = true;
+        public bool DrawObjects { get; set; }
+        public bool FillObjectsRectangle { get; set; } = false;
 
-        public string[] AllowedObjects { get; set; } = new[] { "person" };
+        public string[] ForbiddenObjects { get; set; }
 
         public double MinPersonHeightPersentage { get; set; } = 13.1;
         public double MinPersonWidthPersentage { get; set; } = 3.7;

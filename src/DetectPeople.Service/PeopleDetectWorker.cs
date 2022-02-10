@@ -24,7 +24,7 @@ namespace DetectPeople.Service
         private readonly ObjectsDetecor objectsDetector;
         private readonly Stopwatch timer = new();
         private PeopleDetectConfig config;
-        private HashSet<int> allowedObjects;
+        private HashSet<int> forbiddenObjects;
 
         public PeopleDetectWorker()
         {
@@ -45,8 +45,8 @@ namespace DetectPeople.Service
 
             logger.Info(JsonConvert.SerializeObject(config, Formatting.Indented));
 
-            var objectIds = Objects.GetIds(config.AllowedObjects);
-            allowedObjects = new HashSet<int>(objectIds);
+            var objectIds = Objects.GetIds(config.ForbiddenObjects);
+            forbiddenObjects = new HashSet<int>(objectIds);
 
             RabbitMQHelper hikReceiver = new(config.RabbitMQ.HostName, config.RabbitMQ.QueueName, config.RabbitMQ.RoutingKey);
             hikReceiver.Received += Rabbit_Received;
@@ -72,17 +72,18 @@ namespace DetectPeople.Service
             {
                 logger.Error($"\"{configPath}\" does not exist.");
                 logger.Info("Use default config");
-                return new PeopleDetectConfig { RabbitMQ = new RabbitMQConfig { HostName = "localhost", QueueName = "hik", RoutingKey = "hik" } };
+                return new PeopleDetectConfig { RabbitMQ = new RabbitMQConfig { HostName = "localhost", QueueName = "hik", RoutingKey = "hik" }, ForbiddenObjects = new[] { "car", "train", "bird" }, DrawJunkObjects = true };
             }
             else
             {
+                logger.Info(configPath);
                 return JsonConvert.DeserializeObject<PeopleDetectConfig>(File.ReadAllText(configPath));
             }
         }
 
         private bool IsPerson(ObjectDetectResult res, int minHeight, int minWidht)
         {
-            if (allowedObjects.Contains(res.Id))
+            if (!forbiddenObjects.Contains(res.Id))
             {
                 var rect = res.GetRectangle();
                 return rect.Height >= minHeight && rect.Width >= minWidht;
@@ -108,8 +109,8 @@ namespace DetectPeople.Service
                 timer.Restart();
                 IReadOnlyList<ObjectDetectResult> objects = await objectsDetector.DetectObjectsAsync(msg.OldFilePath);
                 timer.Stop();
-                logger.Info(msg.OldFilePath);
-                logger.Info($"{timer.ElapsedMilliseconds}ms. {objects.Count} objects detected. {string.Join(", ", objects.Select(x => x.Label))}");
+                logger.Debug(msg.OldFilePath);
+                logger.Debug($"{timer.ElapsedMilliseconds}ms. {objects.Count} objects detected. {string.Join(", ", objects.Select(x => x.Label))}");
 
                 //DrawObjects(msg.OldFilePath, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Test", Path.GetFileName(msg.OldFilePath)), objects);
 
@@ -126,7 +127,14 @@ namespace DetectPeople.Service
                     var peoples = objects.Where(x => IsPerson(x, minHeight, minWidth));
                     if (peoples.Any())
                     {
-                        SaveJpg(msg.OldFilePath, msg.NewFilePath);
+                        if (config.DrawObjects)
+                        {
+                            DrawObjects(msg.OldFilePath, msg.NewFilePath, objects, config.FillObjectsRectangle);
+                        }
+                        else
+                        {
+                            SaveJpg(msg.OldFilePath, msg.NewFilePath);
+                        }
                     }
                     else
                     {
@@ -160,7 +168,7 @@ namespace DetectPeople.Service
             File.Delete(msg.OldFilePath);
         }
 
-        private void DrawObjects(string originalPath, string destination, IReadOnlyList<ObjectDetectResult> results)
+        private void DrawObjects(string originalPath, string destination, IReadOnlyList<ObjectDetectResult> results, bool fillRectangle = true)
         {
             using (Bitmap bitmap = new Bitmap(originalPath))
             {
@@ -176,10 +184,14 @@ namespace DetectPeople.Service
                             var x2 = res.BBox[2];
                             var y2 = res.BBox[3];
                             g.DrawRectangle(Pens.Red, x1, y1, x2 - x1, y2 - y1);
-                            using (var brushes = new SolidBrush(Color.FromArgb(50, Color.Red)))
+                            if (fillRectangle)
                             {
-                                g.FillRectangle(brushes, x1, y1, x2 - x1, y2 - y1);
+                                using (var brushes = new SolidBrush(Color.FromArgb(50, Color.Red)))
+                                {
+                                    g.FillRectangle(brushes, x1, y1, x2 - x1, y2 - y1);
+                                }
                             }
+
 
                             g.DrawString(res.Label + " " + res.Confidence.ToString("0.00"), new Font("Arial", 12), Brushes.Yellow, new PointF(x1, y1));
                         }

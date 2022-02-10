@@ -24,6 +24,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.9.0" />
         <PackageReference Include="Yolov5Net" Version="1.0.9" />
     </ItemGroup>
 

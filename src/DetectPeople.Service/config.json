@@ -1,12 +1,11 @@
 ﻿{
-    "RabbitMQ": {
-        "HostName": "localhost",
-        "QueueName": "hik",
-        "RoutingKey": "hik"
-    },
-    "DetectFaces": false,
-    "DrawJunkObjects": true,
-    "FaceCoeficient": 0.65,
-    "OnlyInsideFaces": true,
-    "AllowedObjects": [ "teddy bear", "person", "bear" ]
+  "RabbitMQ": {
+    "HostName": "localhost",
+    "QueueName": "hik",
+    "RoutingKey": "hik"
+  },
+  "DrawJunkObjects": true,
+  "DrawObjects": true,
+  "FillObjectsRectangle": false,
+  "ForbiddenObjects": [ "car", "bird", "train" ]
 }
