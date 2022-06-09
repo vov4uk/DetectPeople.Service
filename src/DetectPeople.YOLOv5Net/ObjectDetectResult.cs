@@ -1,22 +1,19 @@
 ﻿using System.Drawing;
+using Yolov5Net.Scorer;
 
 namespace DetectPeople.YOLOv5Net
 {
     public class ObjectDetectResult
     {
-        public ObjectDetectResult(int id, float[] bbox, string label, float confidence)
-        {
-            Id = id;
-            BBox = bbox;
-            Label = label;
-            Confidence = confidence;
-        }
+        private readonly float[] BBox;
 
-        /// <summary>
-        /// x1, y1, x2, y2 in page coordinates.
-        /// <para>left, top, right, bottom.</para>
-        /// </summary>
-        public float[] BBox { get; }
+        public ObjectDetectResult(YoloPrediction x)
+        {
+            Id = x.Label.Id;
+            BBox = new float[] { x.Rectangle.X, x.Rectangle.Y, x.Rectangle.Right, x.Rectangle.Bottom };
+            Label = x.Label.Name;
+            Confidence = x.Score;
+        }
 
         /// <summary>
         /// Confidence level.

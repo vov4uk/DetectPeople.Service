@@ -4,7 +4,7 @@ App has one mission - detect people on pictures. My security cameras generate to
 
 ## How it works
 In my case [HiKConsole](https://github.com/vov4uk/HikConsole) sent next message to RabbitMQ queue:
-```
+``` json
 {
     "OldFilePath": "Z:\\Entrance\\192.168.0.3_01_20211203002423917_MOTION_DETECTION.jpg",
     "NewFilePath": "D:\\Cloud\\Entrance\\2021-12\\03\\00\\20211203_002423.jpg",

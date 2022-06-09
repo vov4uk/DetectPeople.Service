@@ -1,8 +1,8 @@
-﻿using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using System;
+﻿using System;
 using System.Linq;
 using System.Text;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace DetectPeople.Service
 {
@@ -18,7 +18,7 @@ namespace DetectPeople.Service
         {
             this.queueName = queueName;
             this.routingKey = routingKey;
-            ConnectionFactory factory = new() { HostName = hostName };
+            ConnectionFactory factory = new () { HostName = hostName };
             connection = factory.CreateConnection();
             channel = connection.CreateModel();
             _ = channel.QueueDeclare(queue: queueName, durable: false, exclusive: false, autoDelete: false, arguments: null);
