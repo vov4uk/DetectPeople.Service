@@ -29,9 +29,7 @@ namespace DetectPeople.YOLOv5Net
                 // predict
                 var predictions = scorer.Predict(image);
 
-                results = predictions.Select(x =>
-                new ObjectDetectResult(x.Label.Id, new float[] { x.Rectangle.X, x.Rectangle.Y, x.Rectangle.Right, x.Rectangle.Bottom },
-                x.Label.Name, x.Score)).ToArray();
+                results = predictions.Select(x =>new ObjectDetectResult(x)).ToArray();
 
                 await stream.FlushAsync();
                 await stream.DisposeAsync();

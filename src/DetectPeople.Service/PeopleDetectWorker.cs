@@ -1,10 +1,4 @@
-﻿using DetectPeople.Contracts.Message;
-using DetectPeople.YOLOv5Net;
-using Microsoft.Extensions.Hosting;
-using Newtonsoft.Json;
-using NLog;
-using RabbitMQ.Client.Events;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -15,6 +9,12 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DetectPeople.Contracts.Message;
+using DetectPeople.YOLOv5Net;
+using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
+using NLog;
+using RabbitMQ.Client.Events;
 
 namespace DetectPeople.Service
 {
@@ -22,7 +22,7 @@ namespace DetectPeople.Service
     {
         protected readonly ILogger logger = LogManager.GetCurrentClassLogger();
         private readonly ObjectsDetecor objectsDetector;
-        private readonly Stopwatch timer = new();
+        private readonly Stopwatch timer = new ();
         private PeopleDetectConfig config;
         private HashSet<int> forbiddenObjects;
 
@@ -40,15 +40,16 @@ namespace DetectPeople.Service
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            logger.Info("PeopleDetectWorker started");
+            var version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            logger.Info($"PeopleDetectWorker started v.{version}");
             config = GetConfig();
 
             logger.Info(JsonConvert.SerializeObject(config, Formatting.Indented));
 
-            var objectIds = Objects.GetIds(config.ForbiddenObjects);
+            int[] objectIds = Objects.GetIds(config.ForbiddenObjects);
             forbiddenObjects = new HashSet<int>(objectIds);
 
-            RabbitMQHelper hikReceiver = new(config.RabbitMQ.HostName, config.RabbitMQ.QueueName, config.RabbitMQ.RoutingKey);
+            RabbitMQHelper hikReceiver = new (config.RabbitMQ.HostName, config.RabbitMQ.QueueName, config.RabbitMQ.RoutingKey);
             hikReceiver.Received += Rabbit_Received;
             hikReceiver.Consume();
 
@@ -72,7 +73,16 @@ namespace DetectPeople.Service
             {
                 logger.Error($"\"{configPath}\" does not exist.");
                 logger.Info("Use default config");
-                return new PeopleDetectConfig { RabbitMQ = new RabbitMQConfig { HostName = "localhost", QueueName = "hik", RoutingKey = "hik" }, ForbiddenObjects = new[] { "car", "train", "bird" }, DrawJunkObjects = true };
+                return new PeopleDetectConfig
+                {
+                    RabbitMQ = new RabbitMQConfig
+                    {
+                        HostName = "localhost",
+                        QueueName = "hik",
+                        RoutingKey = "hik"
+                    }, ForbiddenObjects = new[] { "car", "train", "bird" },
+                    DrawJunkObjects = true
+                };
             }
             else
             {
@@ -81,59 +91,60 @@ namespace DetectPeople.Service
             }
         }
 
-        private bool IsPerson(ObjectDetectResult res, int minHeight, int minWidht)
+        private bool IsPerson(ObjectDetectResult detected, int minHeight, int minWidht)
         {
-            if (!forbiddenObjects.Contains(res.Id))
+            if (!forbiddenObjects.Contains(detected.Id))
             {
-                var rect = res.GetRectangle();
+                var rect = detected.GetRectangle();
                 return rect.Height >= minHeight && rect.Width >= minWidht;
             }
+
             return false;
         }
 
         private async void Rabbit_Received(object sender, BasicDeliverEventArgs ea)
         {
+            string sourceFile = string.Empty;
             try
             {
+                DetectPeopleMessage msg = JsonConvert.DeserializeObject<DetectPeopleMessage>(Encoding.UTF8.GetString(ea.Body.ToArray()));
 
-                var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-                DetectPeopleMessage msg = JsonConvert.DeserializeObject<DetectPeopleMessage>(body);
-                logger.Debug("[x] Received {0}", body);
-
-                if (!File.Exists(msg.OldFilePath))
+                sourceFile = msg.OldFilePath;
+                if (!File.Exists(sourceFile))
                 {
-                    logger.Warn($"{msg.OldFilePath} not exist");
+                    logger.Warn($"{sourceFile} not exist");
                     return;
                 }
 
                 timer.Restart();
-                IReadOnlyList<ObjectDetectResult> objects = await objectsDetector.DetectObjectsAsync(msg.OldFilePath);
+                IReadOnlyList<ObjectDetectResult> objects = await objectsDetector.DetectObjectsAsync(sourceFile);
                 timer.Stop();
-                logger.Debug(msg.OldFilePath);
-                logger.Debug($"{timer.ElapsedMilliseconds}ms. {objects.Count} objects detected. {string.Join(", ", objects.Select(x => x.Label))}");
+                logger.Debug($"{sourceFile} {timer.ElapsedMilliseconds}ms. {objects.Count} objects detected. {string.Join(", ", objects.Select(x => x.Label))}");
 
-                //DrawObjects(msg.OldFilePath, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Test", Path.GetFileName(msg.OldFilePath)), objects);
-
+                // DrawObjects(msg.OldFilePath, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Test", Path.GetFileName(msg.OldFilePath)), objects);
                 if (objects.Any())
                 {
                     int minHeight = config.MinPersonHeightPixel;
                     int minWidth = config.MinPersonWidthPixel;
-                    using (Image img = Image.FromFile(msg.OldFilePath))
+                    using (Image img = Image.FromFile(sourceFile))
                     {
                         minHeight = Convert.ToInt32(img.Height * config.MinPersonHeightPersentage / 100.0);
                         minWidth = Convert.ToInt32(img.Width * config.MinPersonWidthPersentage / 100.0);
                     }
 
-                    var peoples = objects.Where(x => IsPerson(x, minHeight, minWidth));
-                    if (peoples.Any())
+                    bool hasPeoples = objects.Any(x => IsPerson(x, minHeight, minWidth));
+                    if (hasPeoples)
                     {
                         if (config.DrawObjects)
                         {
-                            DrawObjects(msg.OldFilePath, msg.NewFilePath, objects, config.FillObjectsRectangle);
+                            var tmp = Path.GetTempFileName();
+                            DrawObjects(sourceFile, tmp, objects, config.FillObjectsRectangle);
+                            SaveJpg(tmp, msg.NewFilePath);
+                            DeleteFile(sourceFile);
                         }
                         else
                         {
-                            SaveJpg(msg.OldFilePath, msg.NewFilePath);
+                            SaveJpg(sourceFile, msg.NewFilePath);
                         }
                     }
                     else
@@ -149,6 +160,7 @@ namespace DetectPeople.Service
             catch (Exception ex)
             {
                 logger.Error(ex);
+                DeleteFile(sourceFile);
             }
         }
 
@@ -165,7 +177,8 @@ namespace DetectPeople.Service
                     SaveJpg(msg.OldFilePath, msg.JunkFilePath);
                 }
             }
-            File.Delete(msg.OldFilePath);
+
+            DeleteFile(msg.OldFilePath);
         }
 
         private void DrawObjects(string originalPath, string destination, IReadOnlyList<ObjectDetectResult> results, bool fillRectangle = true)
@@ -174,49 +187,43 @@ namespace DetectPeople.Service
             {
                 if (results.Any())
                 {
-                    using (var g = Graphics.FromImage(bitmap))
+                    using (var img = Graphics.FromImage(bitmap))
                     {
-                        foreach (var res in results)
+                        foreach (var result in results)
                         {
-                            // draw predictions
-                            var x1 = res.BBox[0];
-                            var y1 = res.BBox[1];
-                            var x2 = res.BBox[2];
-                            var y2 = res.BBox[3];
-                            g.DrawRectangle(Pens.Red, x1, y1, x2 - x1, y2 - y1);
+                            var rectangle = result.GetRectangle();
+                            img.DrawRectangle(Pens.Red, rectangle);
                             if (fillRectangle)
                             {
                                 using (var brushes = new SolidBrush(Color.FromArgb(50, Color.Red)))
                                 {
-                                    g.FillRectangle(brushes, x1, y1, x2 - x1, y2 - y1);
+                                    img.FillRectangle(brushes, rectangle);
                                 }
                             }
 
-
-                            g.DrawString(res.Label + " " + res.Confidence.ToString("0.00"), new Font("Arial", 12), Brushes.Yellow, new PointF(x1, y1));
+                            img.DrawString(
+                                $"{result.Label} {result.Confidence:0.00}",
+                                new Font("Arial", 12),
+                                Brushes.Yellow,
+                                new PointF(rectangle.X, rectangle.Y));
                         }
                     }
                 }
 
                 var parameters = GetCompressParameters();
+                DeleteFile(destination);
 
-                if (File.Exists(destination))
-                {
-                    File.Delete(destination);
-                }
-
-                bitmap.Save(destination, parameters.jpgEncoder, parameters.myEncoderParameters);
+                bitmap.Save(destination, parameters.jpgEncoder, parameters.encoderParameters);
             }
         }
 
-        private (ImageCodecInfo jpgEncoder, EncoderParameters myEncoderParameters) GetCompressParameters()
+        private (ImageCodecInfo jpgEncoder, EncoderParameters encoderParameters) GetCompressParameters()
         {
             var jpgEncoder = GetEncoder(ImageFormat.Jpeg);
-            System.Drawing.Imaging.Encoder myEncoder = System.Drawing.Imaging.Encoder.Quality;
-            var myEncoderParameters = new EncoderParameters(1);
-            myEncoderParameters.Param[0] = new EncoderParameter(myEncoder, 25L);
+            var encoderParameters = new EncoderParameters(1);
+            encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 25L);
 
-            return (jpgEncoder, myEncoderParameters);
+            return (jpgEncoder, encoderParameters);
         }
 
         private void SaveJpg(string source, string destination)
@@ -224,7 +231,7 @@ namespace DetectPeople.Service
             try
             {
                 CompressImage(source, destination);
-                File.Delete(source);
+                DeleteFile(source);
             }
             catch (Exception ex)
             {
@@ -237,27 +244,26 @@ namespace DetectPeople.Service
             using (Bitmap bitmap = new Bitmap(source))
             {
                 var parameters = GetCompressParameters();
-
-                if (File.Exists(destination))
-                {
-                    File.Delete(destination);
-                }
-
-                bitmap.Save(destination, parameters.jpgEncoder, parameters.myEncoderParameters);
+                DeleteFile(destination);
+                bitmap.Save(destination, parameters.jpgEncoder, parameters.encoderParameters);
             }
         }
 
         private ImageCodecInfo GetEncoder(ImageFormat format)
         {
             ImageCodecInfo[] codecs = ImageCodecInfo.GetImageEncoders();
-            foreach (ImageCodecInfo codec in codecs)
+            return codecs.FirstOrDefault(c => c.FormatID == format.Guid);
+        }
+
+        private void DeleteFile(string filepath)
+        {
+            try
             {
-                if (codec.FormatID == format.Guid)
-                {
-                    return codec;
-                }
+                File.Delete(filepath);
             }
-            return null;
+            catch (Exception)
+            {
+            }
         }
     }
 }
